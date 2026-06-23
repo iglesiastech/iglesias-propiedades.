@@ -2199,7 +2199,15 @@ function formToRow(id){
   row.content=buildContent(row);
   return row;
 }
+async function _requireAuth(){
+  const {data:s}=await sb.auth.getSession();
+  if(s&&s.session)return true;
+  showToast('✗ Sesión expirada — volvé a ingresar');
+  checkAdminPass();
+  return false;
+}
 async function saveProp(id){
+  if(!await _requireAuth())return;
   const row=formToRow(id); let res;
   if(PROPS.find(p=>String(p.id)===String(id))) res=await sb.from('propiedades').update(row).eq('id',id);
   else res=await sb.from('propiedades').insert(row);
@@ -2208,6 +2216,7 @@ async function saveProp(id){
   showToast('✓ Guardado en Supabase');
 }
 async function addNewProp(){
+  if(!await _requireAuth())return;
   const blank={titulo:'Nueva propiedad',descripcion:'',precio:'0',zona:'',url_foto:'[]',url_zonaprop:'',ambientes:0,'baños':0,cocheras:0,tiene_balcon:false,orientacion_balcon:'|-',direccion_exacta:'',superficie_total:0,superficie_cubierta:0,tipo_operacion:'venta',expensas:'0'};
   blank.content=buildContent(blank);
   const res=await sb.from('propiedades').insert(blank);
@@ -2215,9 +2224,10 @@ async function addNewProp(){
   await loadProps(); renderAdminProps(); showToast('✓ Propiedad creada — completá los datos y guardá');
 }
 async function deleteProp(id){
+  if(!await _requireAuth())return;
   if(!confirm('¿Eliminar esta propiedad? Se borra también de Supabase.'))return;
   const res=await sb.from('propiedades').delete().eq('id',id);
-  if(res.error){showToast('✗ '+res.error.message);return;}
+  if(res.error){showToast('✗ Error: '+res.error.message);return;}
   await loadProps(); renderAdminProps(); showToast('✓ Eliminada de Supabase');
 }
 
