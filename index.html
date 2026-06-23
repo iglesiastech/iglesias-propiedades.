@@ -2007,35 +2007,8 @@ function getChecked(name,id){
     const parts=x.id.split('_');parts.shift();parts.shift();return parts.join('_');
   });
 }
-function saveProp(id,isAdded){
-  const fotos=collectRows('pfl'+id);
-  const comod=['pileta','parrilla','encargado','vigilancia','gym','sum','jardin','terraza'].filter(v=>{const el=document.getElementById(`pcom_${id}_${v}`);return el&&el.checked;});
-  const caract=['apto-credito','apto-profesional','luminoso','baulera','amueblado','balcon','acceso-reducida','a-estrenar'].filter(v=>{const el=document.getElementById(`pcar_${id}_${v.replace(/[^a-z0-9]/gi,'')}`);return el&&el.checked;});
-  const serv=['luz','agua','gas','calefaccion','internet','cable'].filter(v=>{const el=document.getElementById(`psrv_${id}_${v}`);return el&&el.checked;});
-  const data={nombre:v('pt'+id),precio:v('pp'+id),expensas:v('pexp'+id),tipo:v('pty'+id),tipoProp:v('ptp'+id),ubicacion:v('pub'+id),barrio:v('pub'+id).split(',')[0].trim(),zona:v('pzona'+id)||v('pub'+id).split(',')[0].trim(),direccion:v('pdir'+id),m2:parseInt(v('pm'+id))||0,m2Total:parseInt(v('pmt'+id))||0,dorms:parseInt(v('pd'+id))||0,ambientes:parseInt(v('pamb'+id))||0,banos:parseInt(v('pbn'+id))||0,cocheras:parseInt(v('pcoch'+id))||0,desc:v('pde'+id),fotos,comodidades:comod,caracteristicas:caract,servicios:serv};
-  if(isAdded){
-    if(!db.addedProps)db.addedProps=[];
-    const idx=db.addedProps.findIndex(x=>String(x.id)===String(id));
-    if(idx>=0)db.addedProps[idx]={...db.addedProps[idx],...data};
-    else db.addedProps.push({id,...data});
-  } else {
-    if(!db.propOverrides)db.propOverrides={};
-    db.propOverrides[id]=data;
-  }
-  persist();const pv=document.getElementById('ppv'+id);if(pv&&fotos[0])pv.src=fotos[0];showToast('✓ Propiedad guardada');
-}
-function deleteProp(id,isAdded){
-  if(!confirm('¿Eliminar esta propiedad del catálogo?'))return;
-  if(isAdded){db.addedProps=(db.addedProps||[]).filter(x=>String(x.id)!==String(id));}
-  else{if(!db.deletedProps)db.deletedProps=[];db.deletedProps.push(parseInt(id)||id);}
-  persist();renderAdminProps();showToast('✓ Propiedad eliminada');
-}
-function addNewProp(){
-  const newId=genId('np');
-  if(!db.addedProps)db.addedProps=[];
-  db.addedProps.push({id:newId,tipo:'Venta',precio:'',expensas:'',nombre:'Nueva propiedad',barrio:'',ubicacion:'',direccion:'',m2:0,dorms:0,banos:0,fotos:[],desc:''});
-  persist();renderAdminProps();showToast('✓ Propiedad nueva creada — completá los datos');
-}
+// NOTA: saveProp / deleteProp / addNewProp viven más abajo en la sección
+// SUPABASE (versiones async que escriben en la base). No duplicar acá.
 
 // PROJECTS ADMIN
 function renderAdminProjects(){
@@ -2114,31 +2087,12 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function showToast(msg){const t=document.getElementById('save-toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
 
 
-// ─── ADMIN PASSWORD ──────────────────────────────────────────────────────────
-// CAMBIÁ ESTA CONTRASEÑA POR LA QUE VOS QUIERAS:
-const ADMIN_PASS = "iglesias2024";
-
-function checkAdminPass(){
-  // Check if already authenticated this session
-  if(sessionStorage.getItem('adminOk')==='1'){showPage('admin');return;}
-  document.getElementById('admin-modal-bg').style.display='flex';
-  document.getElementById('admin-pass-input').value='';
-  document.getElementById('admin-pass-err').style.display='none';
-  setTimeout(()=>document.getElementById('admin-pass-input').focus(),100);
-}
-function submitAdminPass(){
-  const val=document.getElementById('admin-pass-input').value;
-  if(val===ADMIN_PASS){
-    sessionStorage.setItem('adminOk','1');
-    document.getElementById('admin-modal-bg').style.display='none';
-    showPage('admin');
-  } else {
-    document.getElementById('admin-pass-err').style.display='block';
-    document.getElementById('admin-pass-input').value='';
-    document.getElementById('admin-pass-input').focus();
-    setTimeout(()=>document.getElementById('admin-pass-err').style.display='none',3000);
-  }
-}
+// ─── ADMIN LOGIN ──────────────────────────────────────────────────────────
+// El login real (Supabase Auth) está más abajo: checkAdminPass / submitAdminPass
+// async. NO usar contraseña hardcodeada ni sessionStorage: sin sesión real de
+// Supabase, las escrituras (alta/edición/borrado) las bloquea RLS.
+// Limpieza de estado viejo que permitía entrar sin sesión real:
+try{sessionStorage.removeItem('adminOk');}catch(e){}
 
 // ═══════════════ SUPABASE ═══════════════
 const SUPA_URL="https://oqhtybssyvlqornddtpw.supabase.co";
@@ -2217,7 +2171,11 @@ async function saveProp(id){
 }
 async function addNewProp(){
   if(!await _requireAuth())return;
-  const blank={titulo:'Nueva propiedad',descripcion:'',precio:'0',zona:'',url_foto:'[]',url_zonaprop:'',ambientes:0,'baños':0,cocheras:0,tiene_balcon:false,orientacion_balcon:'|-',direccion_exacta:'',superficie_total:0,superficie_cubierta:0,tipo_operacion:'venta',expensas:'0'};
+  // id explícito (max+1) para no depender del contador interno de la tabla,
+  // que quedó desincronizado por inserciones con id fijo.
+  let nextId=1;
+  try{const{data:mx}=await sb.from('propiedades').select('id').order('id',{ascending:false}).limit(1);if(mx&&mx.length)nextId=(parseInt(mx[0].id)||0)+1;}catch(e){}
+  const blank={id:nextId,titulo:'Nueva propiedad',descripcion:'',precio:'0',zona:'',url_foto:'[]',url_zonaprop:'',ambientes:0,'baños':0,cocheras:0,tiene_balcon:false,orientacion_balcon:'|-',direccion_exacta:'',superficie_total:0,superficie_cubierta:0,tipo_operacion:'venta',expensas:'0'};
   blank.content=buildContent(blank);
   const res=await sb.from('propiedades').insert(blank);
   if(res.error){showToast('✗ '+res.error.message);return;}
