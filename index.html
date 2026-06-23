@@ -1931,75 +1931,111 @@ function applyGlobal(){
 // PROPS ADMIN
 function renderAdminProps(){
   const grid=document.getElementById('admin-props-grid');if(!grid)return;
-  grid.innerHTML=getAllProps().map(p=>adminPropCard(p)).join('')+`<div class="add-new-card-btn" onclick="addNewProp()"><div class="plus">+</div><span>Nueva propiedad</span></div>`;
+  const props=getAllProps();
+  grid.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:13px;color:var(--muted);font-weight:500;">${props.length} propiedad${props.length!==1?'es':''}</span>
+      <button onclick="addNewProp()" style="background:var(--red);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.3px;white-space:nowrap;">+ Nueva propiedad</button>
+    </div>
+    ${props.map(p=>adminPropRow(p)).join('')}
+  `;
 }
-function adminPropCard(p){
-  const isDefault=DEFAULT_PROPS.some(d=>d.id===p.id);
+function toggleAdminEdit(id){
+  const f=document.getElementById('apf'+id);if(!f)return;
+  const wasOpen=f.style.display!=='none';
+  document.querySelectorAll('[id^="apf"]').forEach(x=>{x.style.display='none';});
+  if(!wasOpen){f.style.display='block';f.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+function adminPropRow(p){
+  const thumb=p.fotos&&p.fotos[0]?p.fotos[0]:'';
+  const sub=[p.tipoProp,p.tipo,p.zona].filter(Boolean).join(' · ');
   const tp=p.tipoProp||'';const coch=p.cocheras||0;
   const tiposOpts=['Departamento','Casa','PH','Terreno','Local comercial','Campo','Quinta vacacional','Oficina comercial','Garage','Bodega-Galpon','Fondo de comercio','Hotel','Deposito','Boveda','Cama nautica','Consultorio','Edificio','Desarrollo horizontal','Desarrollo vertical'];
   const tiposSel=tiposOpts.map(t=>`<option value="${t}"${tp===t?' selected':''}>${t}</option>`).join('');
   const chk=(name,val,stored)=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;"><input type="checkbox" id="p${name}_${p.id}_${val.replace(/[^a-z0-9]/gi,'')}" ${(stored||[]).includes(val)?'checked':''}><span>${val}</span></label>`;
   const comod=p.comodidades||[];const caract=p.caracteristicas||[];const serv=p.servicios||[];
-  return `<div class="admin-card">
-    <img class="img-preview" id="ppv${p.id}" src="${p.fotos&&p.fotos[0]?p.fotos[0]:''}" alt="">
-    <h4>ID ${p.id} — ${esc(p.nombre)}</h4>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Información básica</div>
-    <div class="admin-field"><label>Título</label><input type="text" id="pt${p.id}" value="${esc(p.nombre)}"></div>
-    <div class="admin-field"><label>Precio (ej: USD 150.000)</label><input type="text" id="pp${p.id}" value="${esc(p.precio)}"></div>
-    <div class="admin-field"><label>Expensas (ej: $80.000/mes) — dejar vacío si no tiene</label><input type="text" id="pexp${p.id}" value="${esc(p.expensas||'')}" placeholder="$80.000/mes"></div>
-    <div class="admin-field"><label>Tipo de operación</label>
-      <select id="pty${p.id}">
-        <option value="Venta"${p.tipo==='Venta'?' selected':''}>Venta / Comprar</option>
-        <option value="Alquiler"${p.tipo==='Alquiler'?' selected':''}>Alquiler</option>
-        <option value="Temporal"${p.tipo==='Temporal'?' selected':''}>Temporal</option>
-        <option value="Emprendimiento"${p.tipo==='Emprendimiento'?' selected':''}>Emprendimiento</option>
-      </select>
+  const SEC=`<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:18px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">`;
+  return `<div style="background:var(--white);border:1px solid var(--gray-light);border-radius:10px;margin-bottom:8px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;">
+      <img id="ppv${p.id}" src="${thumb}" alt="" style="width:60px;height:52px;object-fit:cover;border-radius:6px;background:var(--gray-light);flex-shrink:0;" onerror="this.src='';this.style.background='var(--gray-light)'">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="toggleAdminEdit('${p.id}')">
+        <div style="font-size:14px;font-weight:600;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ID ${p.id} — ${esc(p.nombre)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${esc(sub||'Sin datos')}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="toggleAdminEdit('${p.id}')" style="background:var(--dark);color:#fff;border:none;padding:8px 15px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;">✏ Editar</button>
+        <button onclick="deleteProp('${p.id}')" style="background:#fff;color:var(--red);border:1.5px solid var(--red);padding:8px 11px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;">🗑</button>
+      </div>
     </div>
-    <div class="admin-field"><label>Tipo de propiedad</label><select id="ptp${p.id}">${tiposSel}</select></div>
-    <div class="admin-field"><label>Zona / Barrio (para filtrar en el catálogo)</label>
-      <select id="pzona${p.id}">
-        <option value="">Sin zona asignada</option>
-        ${['Palermo','Belgrano','Recoleta','Caballito','Almagro','Colegiales','Nuñez','Saavedra','Villa Urquiza','Villa Crespo','Villa Devoto','Monte Castro','Flores','Boedo','San Telmo','Microcentro','Puerto Madero','Palermo Chico','Palermo Jardín','Belgrano R','GBA Norte','GBA Sur','GBA Oeste','Canning'].map(z=>`<option value="${z}"${(p.zona||p.barrio)===z?' selected':''}>${z}</option>`).join('')}
-      </select>
+    <div id="apf${p.id}" style="display:none;border-top:1px solid var(--gray-light);padding:20px 18px;">
+      ${SEC}Información básica</div>
+      <div class="admin-field"><label>Título</label><input type="text" id="pt${p.id}" value="${esc(p.nombre)}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="admin-field"><label>Precio (USD 150.000)</label><input type="text" id="pp${p.id}" value="${esc(p.precio)}"></div>
+        <div class="admin-field"><label>Expensas — vacío si no tiene</label><input type="text" id="pexp${p.id}" value="${esc(p.expensas||'')}" placeholder="$80.000/mes"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="admin-field"><label>Tipo de operación</label>
+          <select id="pty${p.id}">
+            <option value="Venta"${p.tipo==='Venta'?' selected':''}>Venta</option>
+            <option value="Alquiler"${p.tipo==='Alquiler'?' selected':''}>Alquiler</option>
+            <option value="Temporal"${p.tipo==='Temporal'?' selected':''}>Temporal</option>
+            <option value="Emprendimiento"${p.tipo==='Emprendimiento'?' selected':''}>Emprendimiento</option>
+          </select>
+        </div>
+        <div class="admin-field"><label>Tipo de propiedad</label><select id="ptp${p.id}">${tiposSel}</select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="admin-field"><label>Zona / Barrio</label>
+          <select id="pzona${p.id}">
+            <option value="">Sin zona</option>
+            ${['Palermo','Belgrano','Recoleta','Caballito','Almagro','Colegiales','Nuñez','Saavedra','Villa Urquiza','Villa Crespo','Villa Devoto','Monte Castro','Flores','Boedo','San Telmo','Microcentro','Puerto Madero','Palermo Chico','Palermo Jardín','Belgrano R','GBA Norte','GBA Sur','GBA Oeste','Canning'].map(z=>`<option value="${z}"${(p.zona||p.barrio)===z?' selected':''}>${z}</option>`).join('')}
+          </select>
+        </div>
+        <div class="admin-field"><label>Ubicación (ej: Palermo, CABA)</label><input type="text" id="pub${p.id}" value="${esc(p.ubicacion)}"></div>
+      </div>
+      <div class="admin-field"><label>Dirección exacta (para el mapa)</label><input type="text" id="pdir${p.id}" value="${esc(p.direccion||'')}" placeholder="Av. Corrientes 1234, CABA"></div>
+      <div class="admin-field"><label>Descripción</label><textarea id="pde${p.id}">${esc(p.desc)}</textarea></div>
+
+      ${SEC}Medidas y ambientes</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+        <div class="admin-field"><label>Sup. cubierta m²</label><input type="number" id="pm${p.id}" value="${p.m2||0}"></div>
+        <div class="admin-field"><label>Sup. total m²</label><input type="number" id="pmt${p.id}" value="${p.m2Total||0}"></div>
+        <div class="admin-field"><label>Ambientes</label><input type="number" id="pamb${p.id}" value="${p.ambientes||0}"></div>
+        <div class="admin-field"><label>Dormitorios</label><input type="number" id="pd${p.id}" value="${p.dorms||0}"></div>
+        <div class="admin-field"><label>Baños</label><input type="number" id="pbn${p.id}" value="${p.banos||0}"></div>
+        <div class="admin-field"><label>Cocheras</label><input type="number" id="pcoch${p.id}" value="${coch}"></div>
+      </div>
+
+      ${SEC}Comodidades</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+        ${chk('com','pileta',comod)}${chk('com','parrilla',comod)}${chk('com','encargado',comod)}${chk('com','vigilancia',comod)}${chk('com','gym',comod)}${chk('com','sum',comod)}${chk('com','jardin',comod)}${chk('com','terraza',comod)}
+      </div>
+
+      ${SEC}Características</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+        ${chk('car','apto-credito',caract)}${chk('car','apto-profesional',caract)}${chk('car','luminoso',caract)}${chk('car','baulera',caract)}${chk('car','amueblado',caract)}${chk('car','balcon',caract)}${chk('car','acceso-reducida',caract)}${chk('car','a-estrenar',caract)}
+      </div>
+
+      ${SEC}Servicios</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+        ${chk('srv','luz',serv)}${chk('srv','agua',serv)}${chk('srv','gas',serv)}${chk('srv','calefaccion',serv)}${chk('srv','internet',serv)}${chk('srv','cable',serv)}
+      </div>
+
+      ${SEC}Fotos</div>
+      <div class="photo-list" id="pfl${p.id}">${buildPhotoRows(p.fotos)}</div>
+      <button class="add-photo-btn" onclick="addRow('pfl${p.id}')">+ Agregar URL de foto</button>
+      <label class="file-input-btn" for="pff${p.id}" style="margin-top:6px;">📁 Subir fotos desde PC</label>
+      <input type="file" id="pff${p.id}" accept="image/*" multiple style="display:none" onchange="addFilesToList(this,'pfl${p.id}','ppv${p.id}')">
+
+      ${SEC}Link Zonaprop <span style="font-weight:400;font-size:9px;color:var(--muted);letter-spacing:0;text-transform:none;">(solo para el agente IA — no aparece en la web)</span></div>
+      <div class="admin-field"><input type="text" id="pzp${p.id}" value="${esc(p.urlZonaprop||'')}" placeholder="https://www.zonaprop.com.ar/propiedades/..."></div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-light);">
+        <button onclick="saveProp('${p.id}')" style="flex:1;background:var(--red);color:#fff;border:none;padding:12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✓ Guardar propiedad</button>
+        <button onclick="toggleAdminEdit('${p.id}')" style="background:#fff;color:var(--muted);border:1px solid var(--gray-light);padding:12px 16px;border-radius:8px;cursor:pointer;font-size:13px;">Cerrar</button>
+      </div>
     </div>
-    <div class="admin-field"><label>Ubicación (ej: Palermo, CABA)</label><input type="text" id="pub${p.id}" value="${esc(p.ubicacion)}"></div>
-    <div class="admin-field"><label>Dirección exacta (para el mapa) — ej: Av. Santa Fe 1234, Buenos Aires</label><input type="text" id="pdir${p.id}" value="${esc(p.direccion||'')}" placeholder="Av. Corrientes 1234, CABA"></div>
-    <div class="admin-field"><label>Descripción</label><textarea id="pde${p.id}">${esc(p.desc)}</textarea></div>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Medidas y ambientes</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="admin-field"><label>Superficie m²</label><input type="number" id="pm${p.id}" value="${p.m2||0}"></div>
-      <div class="admin-field"><label>Sup. total m²</label><input type="number" id="pmt${p.id}" value="${p.m2Total||0}"></div>
-      <div class="admin-field"><label>Dormitorios</label><input type="number" id="pd${p.id}" value="${p.dorms||0}"></div>
-      <div class="admin-field"><label>Ambientes</label><input type="number" id="pamb${p.id}" value="${p.ambientes||0}"></div>
-      <div class="admin-field"><label>Baños</label><input type="number" id="pbn${p.id}" value="${p.banos||0}"></div>
-      <div class="admin-field"><label>Cocheras</label><input type="number" id="pcoch${p.id}" value="${coch}"></div>
-    </div>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Comodidades</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      ${chk('com','pileta',comod)}${chk('com','parrilla',comod)}${chk('com','encargado',comod)}${chk('com','vigilancia',comod)}${chk('com','gym',comod)}${chk('com','sum',comod)}${chk('com','jardin',comod)}${chk('com','terraza',comod)}
-    </div>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Características</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      ${chk('car','apto-credito',caract)}${chk('car','apto-profesional',caract)}${chk('car','luminoso',caract)}${chk('car','baulera',caract)}${chk('car','amueblado',caract)}${chk('car','balcon',caract)}${chk('car','acceso-reducida',caract)}${chk('car','a-estrenar',caract)}
-    </div>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Servicios</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      ${chk('srv','luz',serv)}${chk('srv','agua',serv)}${chk('srv','gas',serv)}${chk('srv','calefaccion',serv)}${chk('srv','internet',serv)}${chk('srv','cable',serv)}
-    </div>
-
-    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:14px 0 10px;border-bottom:1px solid var(--gray-light);padding-bottom:6px;">Fotos</div>
-    <div class="photo-list" id="pfl${p.id}">${buildPhotoRows(p.fotos)}</div>
-    <button class="add-photo-btn" onclick="addRow('pfl${p.id}')">+ Agregar foto</button>
-    <label class="file-input-btn" for="pff${p.id}">📁 Subir fotos desde PC</label>
-    <input type="file" id="pff${p.id}" accept="image/*" multiple style="display:none" onchange="addFilesToList(this,'pfl${p.id}','ppv${p.id}')">
-
-    <button class="admin-save-btn" onclick="saveProp('${p.id}',${!isDefault})" style="margin-top:14px;">Guardar propiedad</button>
-    <button class="admin-delete-btn" onclick="deleteProp('${p.id}',${!isDefault})" style="margin-top:8px;">🗑 Eliminar propiedad</button>
   </div>`;
 }
 function getChecked(name,id){
