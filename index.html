@@ -2165,7 +2165,12 @@ const sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
 const PCOLS="id,titulo,descripcion,precio,zona,url_foto,url_zonaprop,ambientes,baños,cocheras,tiene_balcon,orientacion_balcon,direccion_exacta,superficie_total,superficie_cubierta,content,tipo_operacion,expensas";
 let PROPS=[];
 
-function _digits(s){return String(s==null?'':s).replace(/[^\d]/g,'');}
+function _digits(s){
+  var str=String(s==null?'':s).trim();
+  // Si es un número decimal puro (ej "115000.0" que devuelve Supabase), redondear
+  if(/^\d+(\.\d+)?$/.test(str))return String(Math.round(parseFloat(str)));
+  return str.replace(/[^\d]/g,'');
+}
 function _money(n){return (parseInt(_digits(n)||'0',10)).toLocaleString('es-AR');}
 function fmtPrecio(raw,op){const n=_digits(raw);if(!n)return 'Consultar';return op==='Alquiler'?'$ '+_money(n)+'/mes':'USD '+_money(n);}
 function fmtExp(raw){const n=_digits(raw);return n&&parseInt(n,10)>0?'$ '+_money(n):'';}
