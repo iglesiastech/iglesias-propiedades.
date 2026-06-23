@@ -134,6 +134,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(26,35,64,.9
 .card-slider-btn.next{right:8px;}
 .property-card:hover .card-slider-btn,.project-card:hover .card-slider-btn{opacity:1;}
 .card-slider-btn:hover{background:var(--red);}
+@media(hover:none),(pointer:coarse){
+  .card-slider-btn,.showcase-slide-btn{opacity:.82 !important;}
+}
 .card-slider-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:10;}
 .card-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);cursor:pointer;transition:background .2s;}
 .card-dot.active{background:#fff;}
@@ -1642,6 +1645,31 @@ document.addEventListener('keydown',e=>{
 function galGoto(n){window._gi=n;}
 function galNext(){galGoto((window._gi+1)%window._gal.length);}
 function galPrev(){galGoto((window._gi-1+window._gal.length)%window._gal.length);}
+
+// ── SWIPE TÁCTIL (tarjetas de propiedades, proyectos y lightbox) ──
+(function(){
+  var _tx=0,_ty=0,_el=null;
+  document.addEventListener('touchstart',function(e){
+    _tx=e.touches[0].clientX;
+    _ty=e.touches[0].clientY;
+    _el=e.target;
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    var dx=e.changedTouches[0].clientX-_tx;
+    var dy=e.changedTouches[0].clientY-_ty;
+    if(Math.abs(dx)<50||Math.abs(dy)>Math.abs(dx)*0.8)return;
+    var dir=dx<0?1:-1;
+    // Lightbox abierto
+    var lb=document.getElementById('pd2-lightbox');
+    if(lb&&lb.classList.contains('open')){dir===1?lbNext():lbPrev();return;}
+    // Tarjeta de propiedad (.card-slider)
+    var cs=_el&&_el.closest&&_el.closest('.card-slider');
+    if(cs){var pc=cs.closest('[id^="pcard"]');if(pc){cardSlide(pc.id.replace('pcard',''),dir);return;}}
+    // Tarjeta de proyecto (showcase o entregado)
+    var sc=_el&&_el.closest&&(_el.closest('[id^="sc"]')||_el.closest('.proj-showcase-card,.proj-ent-card'));
+    if(sc&&sc.dataset&&sc.dataset.fotos){scSlide(sc.id,dir);return;}
+  },{passive:true});
+})();
 
 // ─── PROJECTS ────────────────────────────────────────────────────────────────
 function renderProjects(){
