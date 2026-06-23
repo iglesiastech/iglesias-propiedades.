@@ -2155,15 +2155,23 @@ function zpId(u){const m=String(u||'').match(/-(\d+)\.html/);return m?m[1]:'';}
 
 function mapRow(r){
   const op=(r.tipo_operacion||'').toLowerCase()==='alquiler'?'Alquiler':'Venta';
+  // url_foto guarda JSON array: '["url1","url2"]' o una URL suelta (retrocompat)
   let fotos=[];
-  if(r.url_foto&&!/fotos\.com/.test(r.url_foto))fotos=[r.url_foto];
+  const rawFoto=r.url_foto||'';
+  if(rawFoto.startsWith('[')){try{fotos=JSON.parse(rawFoto).filter(Boolean);}catch(e){}}
+  else if(rawFoto&&!/fotos\.com/.test(rawFoto))fotos=[rawFoto];
   if(!fotos.length){const seed=DEFAULT_PROPS.find(p=>String(p.id)===zpId(r.url_zonaprop));if(seed&&seed.fotos&&seed.fotos.length)fotos=seed.fotos;}
+  // orientacion_balcon guarda "TipoPropiedad|Orientacion" (ej: "Departamento|Norte")
+  const rawOrient=r.orientacion_balcon||'-';
+  const pi=rawOrient.indexOf('|');
+  const tipoProp=pi>=0?rawOrient.substring(0,pi):'';
+  const orientacionBalcon=pi>=0?rawOrient.substring(pi+1):rawOrient;
   const amb=parseInt(r.ambientes)||0;
-  return {id:r.id,tipo:op,tipoProp:'',precio:fmtPrecio(r.precio,op),expensas:fmtExp(r.expensas),
+  return {id:r.id,tipo:op,tipoProp:tipoProp,precio:fmtPrecio(r.precio,op),expensas:fmtExp(r.expensas),
     nombre:r.titulo||'',barrio:r.zona||'',zona:r.zona||'',ubicacion:r.direccion_exacta||r.zona||'',direccion:r.direccion_exacta||'',
     m2:parseInt(r.superficie_cubierta)||parseInt(r.superficie_total)||0,m2Total:parseInt(r.superficie_total)||0,
     dorms:Math.max(0,amb-1),ambientes:amb,banos:parseInt(r['baños'])||0,cocheras:parseInt(r.cocheras)||0,
-    desc:r.descripcion||'',fotos:fotos,urlZonaprop:r.url_zonaprop||'',orientacionBalcon:r.orientacion_balcon||'-',tieneBalcon:!!r.tiene_balcon};
+    desc:r.descripcion||'',fotos:fotos,urlZonaprop:r.url_zonaprop||'',orientacionBalcon:orientacionBalcon,tieneBalcon:!!r.tiene_balcon};
 }
 async function loadProps(){
   try{const {data,error}=await sb.from('propiedades').select(PCOLS).order('id',{ascending:true});
@@ -2180,10 +2188,12 @@ function buildContent(o){return `${o.titulo} en ${o.zona}, Capital Federal, CABA
 function formToRow(id){
   const fotos=(collectRows('pfl'+id)||[]).filter(Boolean);
   const ubic=v('pub'+id), tipo=v('pty'+id)||'Venta', ex=PROPS.find(p=>String(p.id)===String(id))||{};
+  const tipoProp=v('ptp'+id)||'';
+  const orientBase=ex.orientacionBalcon||'-';
   const row={titulo:v('pt'+id),descripcion:v('pde'+id),precio:_digits(v('pp'+id))||'0',
-    zona:(v('pzona'+id)||(ubic.split(',')[0]||'').trim()),url_foto:fotos[0]||'',
+    zona:(v('pzona'+id)||(ubic.split(',')[0]||'').trim()),url_foto:JSON.stringify(fotos),
     url_zonaprop:v('pzp'+id)||ex.urlZonaprop||'',ambientes:parseInt(v('pamb'+id))||0,'baños':parseInt(v('pbn'+id))||0,
-    cocheras:parseInt(v('pcoch'+id))||0,tiene_balcon:ex.tieneBalcon||false,orientacion_balcon:ex.orientacionBalcon||'-',
+    cocheras:parseInt(v('pcoch'+id))||0,tiene_balcon:ex.tieneBalcon||false,orientacion_balcon:tipoProp+'|'+orientBase,
     direccion_exacta:v('pdir'+id)||ubic,superficie_total:parseInt(v('pmt'+id))||parseInt(v('pm'+id))||0,
     superficie_cubierta:parseInt(v('pm'+id))||parseInt(v('pmt'+id))||0,tipo_operacion:tipo.toLowerCase(),expensas:_digits(v('pexp'+id))||'0'};
   row.content=buildContent(row);
@@ -2198,7 +2208,7 @@ async function saveProp(id){
   showToast('✓ Guardado en Supabase');
 }
 async function addNewProp(){
-  const blank={titulo:'Nueva propiedad',descripcion:'',precio:'0',zona:'',url_foto:'',url_zonaprop:'',ambientes:0,'baños':0,cocheras:0,tiene_balcon:false,orientacion_balcon:'-',direccion_exacta:'',superficie_total:0,superficie_cubierta:0,tipo_operacion:'venta',expensas:'0'};
+  const blank={titulo:'Nueva propiedad',descripcion:'',precio:'0',zona:'',url_foto:'[]',url_zonaprop:'',ambientes:0,'baños':0,cocheras:0,tiene_balcon:false,orientacion_balcon:'|-',direccion_exacta:'',superficie_total:0,superficie_cubierta:0,tipo_operacion:'venta',expensas:'0'};
   blank.content=buildContent(blank);
   const res=await sb.from('propiedades').insert(blank);
   if(res.error){showToast('✗ '+res.error.message);return;}
