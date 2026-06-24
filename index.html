@@ -280,6 +280,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(26,35,64,.9
 .photo-row img{width:60px;height:45px;object-fit:cover;border:1px solid var(--gray-light);flex-shrink:0;background:#eee;}
 .photo-row input{flex:1;border:1px solid var(--gray-light);padding:6px 8px;font-size:11px;font-family:'Montserrat',sans-serif;background:var(--cream);color:var(--text);outline:none;}
 .photo-row .del-btn{background:var(--red);color:#fff;border:none;width:26px;height:26px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;}
+.photo-row .ord-btn{background:var(--navy);color:#fff;border:none;width:22px;height:22px;cursor:pointer;font-size:10px;line-height:1;flex-shrink:0;padding:0;opacity:.75;transition:opacity .15s;}
+.photo-row .ord-btn:hover{opacity:1;}
 .add-photo-btn{width:100%;background:transparent;border:1px dashed var(--navy);padding:8px;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-family:'Montserrat',sans-serif;cursor:pointer;color:var(--navy);transition:all .2s;margin-bottom:10px;}
 .add-photo-btn:hover{background:var(--navy);color:#fff;}
 .global-admin-card{background:#fff;border:1px solid var(--gray-light);padding:28px;margin-bottom:24px;}
@@ -2121,7 +2123,7 @@ function saveProj(id,tipo,isAdded){
     if(!db.projOverrides)db.projOverrides={};
     db.projOverrides[id]=base;
   }
-  persist();const pv=document.getElementById('jpv'+id);if(pv&&fotos[0])pv.src=fotos[0];showToast('✓ Proyecto guardado');
+  persist();renderAdminProjects();showToast('✓ Proyecto guardado');
 }
 function deleteProj(id,tipo,isAdded){
   if(!confirm('¿Eliminar este proyecto?'))return;
@@ -2140,10 +2142,16 @@ function addNewProj(tipo){
 }
 
 // PHOTO HELPERS
-function buildPhotoRows(fotos){if(!fotos||!fotos.length)return'';return fotos.map(f=>`<div class="photo-row"><img src="${f}" alt=""><input type="text" value="${f}" oninput="this.previousElementSibling.src=this.value"><button class="del-btn" onclick="this.parentElement.remove()">×</button></div>`).join('');}
-function addRow(listId){const l=document.getElementById(listId);if(!l)return;const d=document.createElement('div');d.className='photo-row';d.innerHTML='<img src="" alt=""><input type="text" placeholder="https://..." oninput="this.previousElementSibling.src=this.value"><button class="del-btn" onclick="this.parentElement.remove()">×</button>';l.appendChild(d);}
+const _photoRowHTML=(src)=>
+  `<img src="${src}" alt=""><input type="text" value="${src}" oninput="this.previousElementSibling.src=this.value">`+
+  `<button class="ord-btn" onclick="movePhotoRow(this,-1)" title="Subir">▲</button>`+
+  `<button class="ord-btn" onclick="movePhotoRow(this,1)" title="Bajar">▼</button>`+
+  `<button class="del-btn" onclick="this.parentElement.remove()">×</button>`;
+function buildPhotoRows(fotos){if(!fotos||!fotos.length)return'';return fotos.map(f=>`<div class="photo-row">${_photoRowHTML(f)}</div>`).join('');}
+function addRow(listId){const l=document.getElementById(listId);if(!l)return;const d=document.createElement('div');d.className='photo-row';d.innerHTML=_photoRowHTML('').replace('value=""','placeholder="https://..."');l.appendChild(d);}
 function collectRows(listId){const l=document.getElementById(listId);if(!l)return[];return Array.from(l.querySelectorAll('input[type=text]')).map(i=>i.value.trim()).filter(Boolean);}
-function addFilesToList(input,listId,previewId){const l=document.getElementById(listId);if(!l)return;Array.from(input.files).forEach(f=>{const r=new FileReader();r.onload=e=>{const d=e.target.result;const div=document.createElement('div');div.className='photo-row';div.innerHTML=`<img src="${d}" alt=""><input type="text" value="${d}" oninput="this.previousElementSibling.src=this.value"><button class="del-btn" onclick="this.parentElement.remove()">×</button>`;l.appendChild(div);if(previewId){const pv=document.getElementById(previewId);if(pv&&!pv.src.includes('data:'))pv.src=d;}};r.readAsDataURL(f);});}
+function addFilesToList(input,listId,previewId){const l=document.getElementById(listId);if(!l)return;Array.from(input.files).forEach(f=>{const r=new FileReader();r.onload=e=>{const d=e.target.result;const div=document.createElement('div');div.className='photo-row';div.innerHTML=_photoRowHTML(d);l.appendChild(div);if(previewId){const pv=document.getElementById(previewId);if(pv&&!pv.src.includes('data:'))pv.src=d;}};r.readAsDataURL(f);});}
+function movePhotoRow(btn,dir){const row=btn.closest('.photo-row');const list=row.parentElement;if(dir===-1){if(row.previousElementSibling)list.insertBefore(row,row.previousElementSibling);}else{if(row.nextElementSibling)list.insertBefore(row.nextElementSibling,row);}}
 
 // UTILS
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
